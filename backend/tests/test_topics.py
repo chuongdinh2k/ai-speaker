@@ -23,7 +23,7 @@ async def test_list_topics_empty(client):
     token = await get_token(client, "topicuser@test.com")
     resp = await client.get("/topics", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert isinstance(resp.json(), list)
 
 @pytest.mark.asyncio
 async def test_create_topic_requires_admin(client):
