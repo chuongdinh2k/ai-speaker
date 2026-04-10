@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.auth.router import router as auth_router
 from app.topics.router import router as topics_router
+from app.conversations.router import router as conversations_router
 import os
 
 app = FastAPI(title="AI Speaker")
@@ -12,6 +13,7 @@ app.mount("/audio", StaticFiles(directory=settings.audio_storage_path), name="au
 
 app.include_router(auth_router)
 app.include_router(topics_router)
+app.include_router(conversations_router)
 
 @app.get("/health")
 async def health():
