@@ -1,6 +1,8 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     database_url: str
     redis_url: str = "redis://localhost:6379"
     openai_api_key: str
@@ -10,8 +12,5 @@ class Settings(BaseSettings):
     audio_storage_path: str = "/app/audio"
     rag_top_k: int = 5
     rag_recent_window: int = 10
-
-    class Config:
-        env_file = ".env"
 
 settings = Settings()
