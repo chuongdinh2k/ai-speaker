@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.auth.router import router as auth_router
 from app.topics.router import router as topics_router
@@ -10,6 +11,14 @@ from app.admin.router import router as admin_router
 import os
 
 app = FastAPI(title="AI Speaker")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 os.makedirs(settings.audio_storage_path, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=settings.audio_storage_path), name="audio")

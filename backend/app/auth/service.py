@@ -6,9 +6,11 @@ from datetime import datetime, timedelta, timezone
 from app.models.user import User
 from app.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 async def register_user(db: AsyncSession, email: str, password: str) -> User:
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be 72 bytes or fewer")
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():
         raise ValueError("Email already registered")
