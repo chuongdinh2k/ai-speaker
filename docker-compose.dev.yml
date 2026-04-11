@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aispeaker
+      POSTGRES_PASSWORD: aispeaker
+      POSTGRES_DB: aispeaker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    env_file: ./backend/.env
+    volumes:
+      - audio_data:/app/audio
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  audio_data:
