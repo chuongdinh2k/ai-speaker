@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { chatApi } from "../api/endpoints"
 
 export interface ChatMessage {
   role: "user" | "assistant"
@@ -8,40 +9,52 @@ export interface ChatMessage {
 
 export function useChat(conversationId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [connected, setConnected] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const ws = useRef<WebSocket | null>(null)
 
-  useEffect(() => {
-    const token = localStorage.getItem("token")
-    const wsUrl = `${import.meta.env.VITE_WS_URL ?? "ws://localhost:8000"}/ws/chat/${conversationId}?token=${token}`
-    ws.current = new WebSocket(wsUrl)
-
-    ws.current.onopen = () => setConnected(true)
-    ws.current.onclose = () => setConnected(false)
-    ws.current.onerror = () => setError("Connection error")
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (data.type === "message") {
-        setMessages(prev => [...prev, { role: "assistant", content: data.content, audio_url: data.audio_url }])
-      } else if (data.type === "error") {
-        setError(data.message)
-      }
+  const sendText = useCallback(async (content: string, replyWithVoice: boolean) => {
+    setError(null)
+    setMessages(prev => [...prev, { role: "user", content }])
+    setLoading(true)
+    try {
+      const res = await chatApi.send(conversationId, content, replyWithVoice)
+      const { assistant_message } = res.data
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: assistant_message.content,
+        audio_url: assistant_message.audio_url,
+      }])
+    } catch {
+      setError("Failed to get a response. Please try again.")
+    } finally {
+      setLoading(false)
     }
-
-    return () => ws.current?.close()
   }, [conversationId])
 
-  const sendText = useCallback((content: string, replyWithVoice: boolean) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return
-    setMessages(prev => [...prev, { role: "user", content }])
-    ws.current.send(JSON.stringify({ type: "text", content, reply_with_voice: replyWithVoice }))
-  }, [])
+  const sendVoice = useCallback(async (audioBlob: Blob, replyWithVoice: boolean) => {
+    setError(null)
+    try {
+      const transcribeRes = await chatApi.transcribe(audioBlob)
+      const transcribedText = transcribeRes.data.text
+      setMessages(prev => [...prev, { role: "user", content: transcribedText }])
+      setLoading(true)
+      try {
+        const res = await chatApi.send(conversationId, transcribedText, replyWithVoice)
+        const { assistant_message } = res.data
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: assistant_message.content,
+          audio_url: assistant_message.audio_url,
+        }])
+      } catch {
+        setError("Failed to get a response. Please try again.")
+      } finally {
+        setLoading(false)
+      }
+    } catch {
+      setError("Transcription failed. Please try again.")
+    }
+  }, [conversationId])
 
-  const sendVoice = useCallback((audioBase64: string, replyWithVoice: boolean) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return
-    ws.current.send(JSON.stringify({ type: "voice", audio_base64: audioBase64, reply_with_voice: replyWithVoice }))
-  }, [])
-
-  return { messages, connected, error, sendText, sendVoice }
+  return { messages, loading, error, sendText, sendVoice }
 }
