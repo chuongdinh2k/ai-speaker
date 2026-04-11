@@ -1,14 +1,16 @@
+from uuid import UUID
 from pydantic import BaseModel
 
-class WSIncomingText(BaseModel):
-    type: str  # "text" or "voice"
-    content: str | None = None
-    audio_base64: str | None = None
+class ChatSendRequest(BaseModel):
+    conversation_id: UUID
+    content: str
     reply_with_voice: bool = False
 
-class WSOutgoingMessage(BaseModel):
-    type: str  # "message" or "error"
-    content: str | None = None
+class MessageOut(BaseModel):
+    id: UUID
+    content: str
     audio_url: str | None = None
-    code: str | None = None
-    message: str | None = None
+
+class ChatSendResponse(BaseModel):
+    user_message: MessageOut
+    assistant_message: MessageOut
