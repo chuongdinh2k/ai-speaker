@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,6 @@ async def send_message(
             reply_with_voice=body.reply_with_voice,
         )
     except Exception:
-        import logging
         logging.exception("Chat error")
         raise HTTPException(status_code=500, detail="An error occurred. Please try again.")
 
