@@ -39,6 +39,7 @@ async def handle_chat_message(
     )
     db.add(user_msg)
     await db.commit()
+    await db.refresh(user_msg)
 
     # 4. Retrieve context
     semantic_ctx = await retrieve_context(db, conversation_id, embedding)
@@ -63,6 +64,7 @@ async def handle_chat_message(
     )
     db.add(assistant_msg)
     await db.commit()
+    await db.refresh(assistant_msg)
 
     # 7. TTS if requested
     audio_url = None
@@ -72,4 +74,9 @@ async def handle_chat_message(
         except Exception:
             audio_url = None  # TTS failure: return text only
 
-    return {"content": reply_text, "audio_url": audio_url}
+    return {
+        "user_message_id": user_msg.id,
+        "content": reply_text,
+        "assistant_message_id": assistant_msg.id,
+        "audio_url": audio_url,
+    }

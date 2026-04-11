@@ -10,6 +10,7 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
   const [text, setText] = useState("")
   const [replyWithVoice, setReplyWithVoice] = useState(false)
   const [recording, setRecording] = useState(false)
+  const [micError, setMicError] = useState<string | null>(null)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
@@ -20,17 +21,22 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
   }
 
   const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    mediaRef.current = new MediaRecorder(stream)
-    chunksRef.current = []
-    mediaRef.current.ondataavailable = e => chunksRef.current.push(e.data)
-    mediaRef.current.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" })
-      onSendVoice(blob, replyWithVoice)
-      stream.getTracks().forEach(t => t.stop())
+    setMicError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRef.current = new MediaRecorder(stream)
+      chunksRef.current = []
+      mediaRef.current.ondataavailable = e => chunksRef.current.push(e.data)
+      mediaRef.current.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" })
+        onSendVoice(blob, replyWithVoice)
+        stream.getTracks().forEach(t => t.stop())
+      }
+      mediaRef.current.start()
+      setRecording(true)
+    } catch {
+      setMicError("Microphone access denied. Please allow microphone access and try again.")
     }
-    mediaRef.current.start()
-    setRecording(true)
   }
 
   const stopRecording = () => {
@@ -39,7 +45,9 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
   }
 
   return (
-    <div className="flex items-center gap-2 p-4 border-t bg-white">
+    <div className="flex flex-col border-t bg-white">
+      {micError && <div className="text-red-500 text-xs px-4 pt-2">{micError}</div>}
+    <div className="flex items-center gap-2 p-4">
       <input
         value={text} onChange={e => setText(e.target.value)}
         onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
@@ -60,6 +68,7 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
         <input type="checkbox" checked={replyWithVoice} onChange={e => setReplyWithVoice(e.target.checked)} />
         Voice reply
       </label>
+    </div>
     </div>
   )
 }

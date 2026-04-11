@@ -33,11 +33,11 @@ export function useChat(conversationId: string) {
 
   const sendVoice = useCallback(async (audioBlob: Blob, replyWithVoice: boolean) => {
     setError(null)
+    setLoading(true)
     try {
       const transcribeRes = await chatApi.transcribe(audioBlob)
       const transcribedText = transcribeRes.data.text
       setMessages(prev => [...prev, { role: "user", content: transcribedText }])
-      setLoading(true)
       try {
         const res = await chatApi.send(conversationId, transcribedText, replyWithVoice)
         const { assistant_message } = res.data
@@ -48,11 +48,11 @@ export function useChat(conversationId: string) {
         }])
       } catch {
         setError("Failed to get a response. Please try again.")
-      } finally {
-        setLoading(false)
       }
     } catch {
       setError("Transcription failed. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }, [conversationId])
 
