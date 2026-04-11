@@ -7,7 +7,7 @@ interface Props {
   onOpen: (id: string) => void
 }
 
-export default function ConversationList({ conversations, topicNames, onDelete, onOpen }: Props) {
+export default function ConversationList({ conversations, topicNames, onOpen }: Props) {
   if (conversations.length === 0) return <p className="text-gray-400 text-sm">No conversations yet.</p>
   return (
     <ul className="space-y-2">
