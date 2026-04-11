@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "backend/**"
+      - "frontend/**"
       - "docker-compose.dev.yml"
       - ".github/workflows/deploy-backend.yml"
 
@@ -30,4 +31,4 @@ jobs:
             set -euo pipefail
             cd /home/ec2-user/ai-speaker
             git pull origin main
-            docker compose -f docker-compose.dev.yml up -d --build api
+            docker compose -f docker-compose.dev.yml up -d --build
