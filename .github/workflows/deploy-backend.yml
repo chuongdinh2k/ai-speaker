@@ -1,0 +1,33 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "docker-compose.dev.yml"
+      - ".github/workflows/deploy-backend.yml"
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@036598d574b33b5e4b82dd6daf8dfc2b59dd37a4  # v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/ec2-user/ai-speaker
+            git pull origin main
+            docker compose -f docker-compose.dev.yml up -d --build api
