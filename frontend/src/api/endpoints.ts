@@ -30,3 +30,19 @@ export const conversationsApi = {
   create: (topic_id: string) => client.post<Conversation>("/conversations", { topic_id }),
   delete: (id: string) => client.delete(`/conversations/${id}`),
 }
+
+export interface ChatSendResponse {
+  user_message: { id: string; content: string }
+  assistant_message: { id: string; content: string; audio_url: string | null }
+}
+
+export const chatApi = {
+  send: (conversation_id: string, content: string, reply_with_voice: boolean) =>
+    client.post<ChatSendResponse>("/chat/send", { conversation_id, content, reply_with_voice }),
+
+  transcribe: (audioBlob: Blob) => {
+    const form = new FormData()
+    form.append("file", audioBlob, "audio.webm")
+    return client.post<{ text: string }>("/voice/transcribe", form)
+  },
+}
