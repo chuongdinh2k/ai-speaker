@@ -25,3 +25,8 @@ dist/
 
 # Audio uploads
 backend/audio/
+
+
+docs/superpowers/
+.claude/
+

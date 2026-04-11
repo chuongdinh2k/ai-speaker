@@ -16,9 +16,9 @@ export default function ConversationList({ conversations, topicNames, onDelete, 
           <button onClick={() => onOpen(c.id)} className="text-blue-600 hover:underline text-sm">
             {topicNames[c.topic_id] ?? "Unknown topic"}
           </button>
-          <button onClick={() => onDelete(c.id)} className="text-red-400 hover:text-red-600 text-xs">
+          {/* <button onClick={() => onDelete(c.id)} className="text-red-400 hover:text-red-600 text-xs">
             Delete
-          </button>
+          </button> */}
         </li>
       ))}
     </ul>
