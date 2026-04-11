@@ -2,7 +2,7 @@ import { useState, useRef } from "react"
 
 interface Props {
   onSendText: (text: string, replyWithVoice: boolean) => void
-  onSendVoice: (base64: string, replyWithVoice: boolean) => void
+  onSendVoice: (blob: Blob, replyWithVoice: boolean) => void
   disabled: boolean
 }
 
@@ -26,12 +26,7 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
     mediaRef.current.ondataavailable = e => chunksRef.current.push(e.data)
     mediaRef.current.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" })
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = (reader.result as string).split(",")[1]
-        onSendVoice(base64, replyWithVoice)
-      }
-      reader.readAsDataURL(blob)
+      onSendVoice(blob, replyWithVoice)
       stream.getTracks().forEach(t => t.stop())
     }
     mediaRef.current.start()
@@ -55,10 +50,11 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
         className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
         Send
       </button>
-      <button onMouseDown={startRecording} onMouseUp={stopRecording}
+      <button
+        onMouseDown={startRecording} onMouseUp={stopRecording}
         disabled={disabled}
         className={`px-4 py-2 rounded text-sm ${recording ? "bg-red-500 text-white" : "bg-gray-200 text-gray-700"} hover:opacity-80 disabled:opacity-50`}>
-        {recording ? "Stop" : "Voice"}
+        {recording ? "Recording..." : "Voice"}
       </button>
       <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
         <input type="checkbox" checked={replyWithVoice} onChange={e => setReplyWithVoice(e.target.checked)} />
