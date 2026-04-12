@@ -42,19 +42,16 @@ async def synthesize_speech(text: str) -> str:
     filename = f"{uuid.uuid4()}.mp3"
 
     s3 = _get_s3_client()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: s3.put_object(
         Bucket=settings.s3_bucket_name,
         Key=filename,
         Body=response.content,
         ContentType="audio/mpeg",
     ))
-    presigned_url = await loop.run_in_executor(
-        None,
-        lambda: s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": settings.s3_bucket_name, "Key": filename},
-            ExpiresIn=settings.s3_presigned_url_expiry,
-        )
+    presigned_url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.s3_bucket_name, "Key": filename},
+        ExpiresIn=settings.s3_presigned_url_expiry,
     )
     return presigned_url
