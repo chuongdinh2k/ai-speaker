@@ -28,5 +28,12 @@ backend/audio/
 
 
 docs/superpowers/
+backend/docs/superpowers/
 .claude/
 
+
+backend/.env
+
+frontend/.env
+
+docs/*
