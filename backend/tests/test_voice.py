@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import uuid4
 from app.models.user import User
 from app.auth.service import pwd_context, create_access_token
+from app.config import settings
+from app.voice.service import synthesize_speech
 
 async def seed_user(db_session):
     user = User(email=f"v{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user")
@@ -33,7 +35,6 @@ async def test_transcribe_returns_text(client, db_session):
     assert resp.json()["text"] == "Hello world"
 
 def test_settings_has_s3_config():
-    from app.config import settings
     assert hasattr(settings, "aws_access_key_id")
     assert hasattr(settings, "aws_secret_access_key")
     assert hasattr(settings, "s3_bucket_name")
@@ -43,9 +44,6 @@ def test_settings_has_s3_config():
 
 @pytest.mark.asyncio
 async def test_synthesize_speech_returns_presigned_url():
-    from app.voice.service import synthesize_speech
-    from unittest.mock import AsyncMock, patch, MagicMock
-
     fake_audio_bytes = b"fake-mp3-content"
     fake_presigned_url = "https://my-bucket.s3.us-east-1.amazonaws.com/abc123.mp3?X-Amz-Signature=fake"
 
@@ -57,7 +55,7 @@ async def test_synthesize_speech_returns_presigned_url():
     mock_s3_client.generate_presigned_url = MagicMock(return_value=fake_presigned_url)
 
     with patch("app.voice.service.client") as mock_openai, \
-         patch("app.voice.service.boto3.client", return_value=mock_s3_client):
+         patch("app.voice.service._get_s3_client", return_value=mock_s3_client):
         mock_openai.audio.speech.create = AsyncMock(return_value=mock_tts_response)
         result = await synthesize_speech("Hello world")
 
@@ -70,5 +68,5 @@ async def test_synthesize_speech_returns_presigned_url():
         "get_object",
         Params={"Bucket": mock_s3_client.put_object.call_args.kwargs["Bucket"],
                 "Key": mock_s3_client.put_object.call_args.kwargs["Key"]},
-        ExpiresIn=3600,
+        ExpiresIn=settings.s3_presigned_url_expiry,
     )

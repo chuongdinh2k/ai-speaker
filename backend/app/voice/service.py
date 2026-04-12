@@ -1,10 +1,25 @@
 import uuid
 import os
+import asyncio
 import boto3
 from openai import AsyncOpenAI
 from app.config import settings
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+_s3_client = None
+
+
+def _get_s3_client():
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            "s3",
+            region_name=settings.s3_region,
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+        )
+    return _s3_client
 
 
 async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> str:
@@ -26,21 +41,20 @@ async def synthesize_speech(text: str) -> str:
     response = await client.audio.speech.create(model="tts-1", voice="alloy", input=text)
     filename = f"{uuid.uuid4()}.mp3"
 
-    s3 = boto3.client(
-        "s3",
-        region_name=settings.s3_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
-    s3.put_object(
+    s3 = _get_s3_client()
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: s3.put_object(
         Bucket=settings.s3_bucket_name,
         Key=filename,
         Body=response.content,
         ContentType="audio/mpeg",
-    )
-    presigned_url = s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": settings.s3_bucket_name, "Key": filename},
-        ExpiresIn=settings.s3_presigned_url_expiry,
+    ))
+    presigned_url = await loop.run_in_executor(
+        None,
+        lambda: s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": settings.s3_bucket_name, "Key": filename},
+            ExpiresIn=settings.s3_presigned_url_expiry,
+        )
     )
     return presigned_url
