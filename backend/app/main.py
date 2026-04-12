@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import settings
 from app.auth.router import router as auth_router
 from app.topics.router import router as topics_router
 from app.conversations.router import router as conversations_router
