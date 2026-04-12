@@ -9,8 +9,13 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
-    audio_storage_path: str = "/app/audio"
     rag_top_k: int = 5
     rag_recent_window: int = 10
+
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    s3_bucket_name: str
+    s3_region: str
+    s3_presigned_url_expiry: int = 3600
 
 settings = Settings()

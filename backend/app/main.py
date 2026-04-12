@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.auth.router import router as auth_router
@@ -8,7 +7,6 @@ from app.conversations.router import router as conversations_router
 from app.voice.router import router as voice_router
 from app.chat.router import router as chat_router
 from app.admin.router import router as admin_router
-import os
 
 app = FastAPI(title="AI Speaker")
 
@@ -19,9 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-os.makedirs(settings.audio_storage_path, exist_ok=True)
-app.mount("/audio", StaticFiles(directory=settings.audio_storage_path), name="audio")
 
 app.include_router(auth_router)
 app.include_router(topics_router)

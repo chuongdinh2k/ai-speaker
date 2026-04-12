@@ -31,3 +31,12 @@ async def test_transcribe_returns_text(client, db_session):
         )
     assert resp.status_code == 200
     assert resp.json()["text"] == "Hello world"
+
+def test_settings_has_s3_config():
+    from app.config import settings
+    assert hasattr(settings, "aws_access_key_id")
+    assert hasattr(settings, "aws_secret_access_key")
+    assert hasattr(settings, "s3_bucket_name")
+    assert hasattr(settings, "s3_region")
+    assert hasattr(settings, "s3_presigned_url_expiry")
+    assert settings.s3_presigned_url_expiry == 3600
