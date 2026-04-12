@@ -37,12 +37,13 @@ services:
     depends_on:
       - api
     ports:
-      - "80:80"
+      - "3000:80"
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
     ports:
+      - "80:80"
       - "443:443"
     volumes:
       - ./nginx/api.conf:/etc/nginx/conf.d/api.conf
