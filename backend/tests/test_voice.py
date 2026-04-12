@@ -40,3 +40,35 @@ def test_settings_has_s3_config():
     assert hasattr(settings, "s3_region")
     assert hasattr(settings, "s3_presigned_url_expiry")
     assert settings.s3_presigned_url_expiry == 3600
+
+@pytest.mark.asyncio
+async def test_synthesize_speech_returns_presigned_url():
+    from app.voice.service import synthesize_speech
+    from unittest.mock import AsyncMock, patch, MagicMock
+
+    fake_audio_bytes = b"fake-mp3-content"
+    fake_presigned_url = "https://my-bucket.s3.us-east-1.amazonaws.com/abc123.mp3?X-Amz-Signature=fake"
+
+    mock_tts_response = MagicMock()
+    mock_tts_response.content = fake_audio_bytes
+
+    mock_s3_client = MagicMock()
+    mock_s3_client.put_object = MagicMock()
+    mock_s3_client.generate_presigned_url = MagicMock(return_value=fake_presigned_url)
+
+    with patch("app.voice.service.client") as mock_openai, \
+         patch("app.voice.service.boto3.client", return_value=mock_s3_client):
+        mock_openai.audio.speech.create = AsyncMock(return_value=mock_tts_response)
+        result = await synthesize_speech("Hello world")
+
+    assert result == fake_presigned_url
+    mock_s3_client.put_object.assert_called_once()
+    call_kwargs = mock_s3_client.put_object.call_args.kwargs
+    assert call_kwargs["ContentType"] == "audio/mpeg"
+    assert call_kwargs["Body"] == fake_audio_bytes
+    mock_s3_client.generate_presigned_url.assert_called_once_with(
+        "get_object",
+        Params={"Bucket": mock_s3_client.put_object.call_args.kwargs["Bucket"],
+                "Key": mock_s3_client.put_object.call_args.kwargs["Key"]},
+        ExpiresIn=3600,
+    )
