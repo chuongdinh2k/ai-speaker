@@ -1,3 +1,4 @@
+import io
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import uuid4
@@ -25,7 +26,6 @@ async def test_transcribe_returns_text(client, db_session):
         mock_openai.audio.transcriptions.create = AsyncMock(
             return_value=MagicMock(text="Hello world")
         )
-        import io
         resp = await client.post(
             "/voice/transcribe",
             files={"file": ("audio.webm", io.BytesIO(b"fake-audio"), "audio/webm")},
