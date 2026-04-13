@@ -84,4 +84,5 @@ def _audio_content_type(ext: str) -> str:
         ".mp4": "audio/mp4",
         ".wav": "audio/wav",
         ".ogg": "audio/ogg",
+        ".aac": "audio/aac",
     }.get(ext.lower(), "audio/webm")

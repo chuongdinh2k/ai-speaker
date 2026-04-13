@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.models.user import User
 from app.auth.service import pwd_context, create_access_token
 from app.config import settings
-from app.voice.service import synthesize_speech
+from app.voice.service import synthesize_speech, _audio_content_type
 
 async def seed_user(db_session):
     user = User(email=f"v{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user")
@@ -41,6 +41,16 @@ def test_settings_has_s3_config():
     assert hasattr(settings, "s3_region")
     assert hasattr(settings, "s3_presigned_url_expiry")
     assert settings.s3_presigned_url_expiry == 3600
+
+def test_audio_content_type():
+    assert _audio_content_type(".webm") == "audio/webm"
+    assert _audio_content_type(".mp3") == "audio/mpeg"
+    assert _audio_content_type(".wav") == "audio/wav"
+    assert _audio_content_type(".ogg") == "audio/ogg"
+    assert _audio_content_type(".mp4") == "audio/mp4"
+    assert _audio_content_type(".aac") == "audio/aac"
+    assert _audio_content_type(".unknown") == "audio/webm"
+    assert _audio_content_type("") == "audio/webm"
 
 @pytest.mark.asyncio
 async def test_synthesize_speech_returns_presigned_url():
@@ -83,7 +93,7 @@ async def test_upload_user_audio_returns_presigned_url():
         url = await upload_user_audio(b"fake audio bytes", "recording.webm")
 
     assert url == fake_url
-    call_kwargs = mock_s3.put_object.call_args[1]
+    call_kwargs = mock_s3.put_object.call_args.kwargs
     assert call_kwargs["Key"].startswith("user-audio/")
     assert call_kwargs["Key"].endswith(".webm")
     assert call_kwargs["ContentType"] == "audio/webm"
@@ -103,6 +113,7 @@ async def test_synthesize_speech_uses_tts_prefix():
         mock_client.audio.speech.create = AsyncMock(return_value=mock_audio)
         url = await synthesize_speech("Hello world")
 
-    call_kwargs = mock_s3.put_object.call_args[1]
+    assert url == fake_url
+    call_kwargs = mock_s3.put_object.call_args.kwargs
     assert call_kwargs["Key"].startswith("tts/")
     assert call_kwargs["Key"].endswith(".mp3")
