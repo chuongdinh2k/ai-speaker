@@ -3,6 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ChatSendRequest(BaseModel):
+    conversation_id: UUID
+    content: str
+    reply_with_voice: bool = False
+
+
 class MessageOut(BaseModel):
     id: UUID
     role: str

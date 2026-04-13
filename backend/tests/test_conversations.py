@@ -50,3 +50,29 @@ async def test_delete_conversation(client, db_session):
     assert del_resp.status_code == 204
     list_resp = await client.get("/conversations", headers={"Authorization": f"Bearer {token}"})
     assert not any(c["id"] == cid for c in list_resp.json())
+
+@pytest.mark.asyncio
+async def test_list_conversations_includes_message_count(client, db_session):
+    from app.models.conversation import Conversation
+    from app.models.message import Message
+
+    user, topic, token = await seed_user_and_topic(db_session)
+    # Create conversation via API
+    r = await client.post("/conversations", json={"topic_id": str(topic.id)},
+                          headers={"Authorization": f"Bearer {token}"})
+    conv_id = r.json()["id"]
+
+    # Seed 3 messages directly
+    for i in range(3):
+        db_session.add(Message(
+            conversation_id=conv_id,
+            role="user" if i % 2 == 0 else "assistant",
+            content=f"msg {i}",
+        ))
+    await db_session.commit()
+
+    resp = await client.get("/conversations", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    convs = resp.json()
+    match = next(c for c in convs if c["id"] == conv_id)
+    assert match["message_count"] == 3
