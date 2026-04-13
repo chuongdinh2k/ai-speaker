@@ -70,3 +70,39 @@ async def test_synthesize_speech_returns_presigned_url():
                 "Key": mock_s3_client.put_object.call_args.kwargs["Key"]},
         ExpiresIn=settings.s3_presigned_url_expiry,
     )
+
+@pytest.mark.asyncio
+async def test_upload_user_audio_returns_presigned_url():
+    from app.voice.service import upload_user_audio
+    fake_url = "https://s3.example.com/user-audio/abc.webm?sig=x"
+    mock_s3 = MagicMock()
+    mock_s3.put_object = MagicMock()
+    mock_s3.generate_presigned_url = MagicMock(return_value=fake_url)
+
+    with patch("app.voice.service._get_s3_client", return_value=mock_s3):
+        url = await upload_user_audio(b"fake audio bytes", "recording.webm")
+
+    assert url == fake_url
+    call_kwargs = mock_s3.put_object.call_args[1]
+    assert call_kwargs["Key"].startswith("user-audio/")
+    assert call_kwargs["Key"].endswith(".webm")
+    assert call_kwargs["ContentType"] == "audio/webm"
+
+@pytest.mark.asyncio
+async def test_synthesize_speech_uses_tts_prefix():
+    from app.voice.service import synthesize_speech
+    fake_url = "https://s3.example.com/tts/abc.mp3?sig=x"
+    mock_s3 = MagicMock()
+    mock_s3.put_object = MagicMock()
+    mock_s3.generate_presigned_url = MagicMock(return_value=fake_url)
+    mock_audio = MagicMock()
+    mock_audio.content = b"mp3 bytes"
+
+    with patch("app.voice.service._get_s3_client", return_value=mock_s3), \
+         patch("app.voice.service.client") as mock_client:
+        mock_client.audio.speech.create = AsyncMock(return_value=mock_audio)
+        url = await synthesize_speech("Hello world")
+
+    call_kwargs = mock_s3.put_object.call_args[1]
+    assert call_kwargs["Key"].startswith("tts/")
+    assert call_kwargs["Key"].endswith(".mp3")

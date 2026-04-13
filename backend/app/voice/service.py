@@ -37,22 +37,51 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> 
         os.unlink(tmp_path)
 
 
-async def synthesize_speech(text: str) -> str:
-    """Generate TTS audio, upload to S3, return pre-signed URL (1-hour expiry)."""
-    response = await client.audio.speech.create(model="tts-1", voice="alloy", input=text)
-    filename = f"{uuid.uuid4()}.mp3"
+async def upload_user_audio(audio_bytes: bytes, filename: str) -> str:
+    """Upload raw user audio to S3 under user-audio/ prefix, return presigned URL."""
+    ext = os.path.splitext(filename)[1] or ".webm"
+    key = f"user-audio/{uuid.uuid4()}{ext}"
+    content_type = _audio_content_type(ext)
 
     s3 = _get_s3_client()
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: s3.put_object(
         Bucket=settings.s3_bucket_name,
-        Key=filename,
+        Key=key,
+        Body=audio_bytes,
+        ContentType=content_type,
+    ))
+    return s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.s3_bucket_name, "Key": key},
+        ExpiresIn=settings.s3_presigned_url_expiry,
+    )
+
+
+async def synthesize_speech(text: str) -> str:
+    """Generate TTS audio, upload to S3 under tts/ prefix, return pre-signed URL."""
+    response = await client.audio.speech.create(model="tts-1", voice="alloy", input=text)
+    key = f"tts/{uuid.uuid4()}.mp3"
+
+    s3 = _get_s3_client()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: s3.put_object(
+        Bucket=settings.s3_bucket_name,
+        Key=key,
         Body=response.content,
         ContentType="audio/mpeg",
     ))
-    presigned_url = s3.generate_presigned_url(
+    return s3.generate_presigned_url(
         "get_object",
-        Params={"Bucket": settings.s3_bucket_name, "Key": filename},
+        Params={"Bucket": settings.s3_bucket_name, "Key": key},
         ExpiresIn=settings.s3_presigned_url_expiry,
     )
-    return presigned_url
+
+
+def _audio_content_type(ext: str) -> str:
+    return {
+        ".mp3": "audio/mpeg",
+        ".mp4": "audio/mp4",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+    }.get(ext.lower(), "audio/webm")
