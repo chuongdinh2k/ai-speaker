@@ -1,12 +1,14 @@
+import logging
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from openai import AsyncOpenAI
 from app.config import settings
 from app.models.message import Message
 from app.chat.rag import embed_text, retrieve_context, get_recent_messages, get_system_prompt, build_messages
-from app.voice.service import transcribe_audio, synthesize_speech
+from app.voice.service import transcribe_audio, synthesize_speech, upload_user_audio
 
 openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+
 
 async def handle_chat_message(
     db: AsyncSession,
@@ -14,15 +16,21 @@ async def handle_chat_message(
     conversation_id: UUID,
     text_content: str | None,
     audio_bytes: bytes | None,
+    audio_filename: str,
     reply_with_voice: bool,
 ) -> dict:
     """
-    Full RAG chat pipeline. Returns {"content": str, "audio_url": str | None}.
-    Raises Exception on unrecoverable errors.
+    Full RAG chat pipeline. Returns dict with user/assistant message IDs, content, and audio URLs.
     """
-    # 1. Resolve text
+    user_audio_url = None
+
+    # 1. Transcribe and upload user audio if provided
     if audio_bytes:
-        text_content = await transcribe_audio(audio_bytes)
+        text_content = await transcribe_audio(audio_bytes, audio_filename)
+        try:
+            user_audio_url = await upload_user_audio(audio_bytes, audio_filename)
+        except Exception:
+            logging.warning("Failed to upload user audio to S3 — storing message without audio_url")
 
     if not text_content:
         raise ValueError("No text content to process")
@@ -30,11 +38,12 @@ async def handle_chat_message(
     # 2. Embed user message
     embedding = await embed_text(text_content)
 
-    # 3. Store user message with embedding
+    # 3. Store user message
     user_msg = Message(
         conversation_id=conversation_id,
         role="user",
         content=text_content,
+        audio_url=user_audio_url,
         embedding=embedding,
     )
     db.add(user_msg)
@@ -72,11 +81,15 @@ async def handle_chat_message(
         try:
             audio_url = await synthesize_speech(reply_text)
         except Exception:
-            audio_url = None  # TTS failure: return text only
+            audio_url = None
 
     return {
         "user_message_id": user_msg.id,
+        "user_audio_url": user_audio_url,
+        "transcribed_text": text_content,
         "content": reply_text,
         "assistant_message_id": assistant_msg.id,
         "audio_url": audio_url,
+        "created_at_user": user_msg.created_at,
+        "created_at_assistant": assistant_msg.created_at,
     }

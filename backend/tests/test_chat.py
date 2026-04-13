@@ -58,7 +58,7 @@ async def test_handle_chat_message_text(db_session):
         mock_llm.chat.completions.create = AsyncMock(
             return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="The answer is 42."))])
         )
-        result = await handle_chat_message(db_session, mock_redis, conv.id, "What is the answer?", None, False)
+        result = await handle_chat_message(db_session, mock_redis, conv.id, "What is the answer?", None, "audio.webm", False)
 
     assert result["content"] == "The answer is 42."
     assert result["audio_url"] is None
