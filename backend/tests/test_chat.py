@@ -62,3 +62,121 @@ async def test_handle_chat_message_text(db_session):
 
     assert result["content"] == "The answer is 42."
     assert result["audio_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_text_message_via_form(client, db_session):
+    from app.auth.service import pwd_context, create_access_token
+    from app.models.user import User
+    from app.models.topic import Topic
+    from app.models.conversation import Conversation
+
+    user, conv, token = await seed_conversation(db_session)
+
+    with patch("app.chat.service.openai_client") as mock_llm, \
+         patch("app.chat.rag.openai_client") as mock_emb:
+        mock_emb.embeddings.create = AsyncMock(
+            return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
+        )
+        mock_llm.chat.completions.create = AsyncMock(
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="Hi there!"))])
+        )
+        with patch("app.chat.router.get_redis", return_value=AsyncMock(get=AsyncMock(return_value=None), setex=AsyncMock())):
+            resp = await client.post(
+                "/chat/send",
+                data={"conversation_id": str(conv.id), "content": "Hello", "reply_with_voice": "false"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["assistant_message"]["content"] == "Hi there!"
+    assert body["user_message"]["audio_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_audio_message_stores_audio_url(client, db_session):
+    user, conv, token = await seed_conversation(db_session)
+    fake_audio = b"fake webm bytes"
+    fake_user_audio_url = "https://s3.example.com/user-audio/xyz.webm?sig=1"
+
+    with patch("app.chat.service.openai_client") as mock_llm, \
+         patch("app.chat.rag.openai_client") as mock_emb, \
+         patch("app.voice.service.client") as mock_voice_client, \
+         patch("app.voice.service._get_s3_client") as mock_s3_factory:
+        mock_emb.embeddings.create = AsyncMock(
+            return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
+        )
+        mock_llm.chat.completions.create = AsyncMock(
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="Got it!"))])
+        )
+        mock_voice_client.audio.transcriptions.create = AsyncMock(
+            return_value=MagicMock(text="Hello from audio")
+        )
+        mock_s3 = MagicMock()
+        mock_s3.put_object = MagicMock()
+        mock_s3.generate_presigned_url = MagicMock(return_value=fake_user_audio_url)
+        mock_s3_factory.return_value = mock_s3
+
+        with patch("app.chat.router.get_redis", return_value=AsyncMock(get=AsyncMock(return_value=None), setex=AsyncMock())):
+            resp = await client.post(
+                "/chat/send",
+                data={"conversation_id": str(conv.id), "reply_with_voice": "false"},
+                files={"audio": ("recording.webm", fake_audio, "audio/webm")},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["user_message"]["content"] == "Hello from audio"
+    assert body["user_message"]["audio_url"] == fake_user_audio_url
+
+
+@pytest.mark.asyncio
+async def test_send_requires_content_or_audio(client, db_session):
+    user, conv, token = await seed_conversation(db_session)
+    resp = await client.post(
+        "/chat/send",
+        data={"conversation_id": str(conv.id)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_chat_history_paginated(client, db_session):
+    from app.models.message import Message as MessageModel
+    user, conv, token = await seed_conversation(db_session)
+
+    # Seed 15 messages
+    for i in range(15):
+        db_session.add(MessageModel(
+            conversation_id=conv.id,
+            role="user" if i % 2 == 0 else "assistant",
+            content=f"message {i}",
+        ))
+    await db_session.commit()
+
+    # First page — no cursor
+    resp = await client.get(
+        f"/chat/{conv.id}/messages",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["messages"]) == 10
+    assert body["next_cursor"] is not None
+    # Messages should be oldest→newest within the page
+    dates = [m["created_at"] for m in body["messages"]]
+    assert dates == sorted(dates)
+
+    # Second page — use cursor
+    cursor = body["next_cursor"]
+    resp2 = await client.get(
+        f"/chat/{conv.id}/messages?cursor={cursor}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp2.status_code == 200
+    body2 = resp2.json()
+    assert len(body2["messages"]) == 5
+    assert body2["next_cursor"] is None

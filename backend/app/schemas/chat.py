@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ChatSendRequest(BaseModel):
@@ -10,14 +10,13 @@ class ChatSendRequest(BaseModel):
 
 
 class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     role: str
     content: str
     audio_url: str | None = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ChatSendResponse(BaseModel):
