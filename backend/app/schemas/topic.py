@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 
 class TopicCreate(BaseModel):
@@ -12,10 +12,9 @@ class TopicUpdate(BaseModel):
     system_prompt: str | None = None
 
 class TopicResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     description: str | None
     system_prompt: str | None
-
-    class Config:
-        from_attributes = True
