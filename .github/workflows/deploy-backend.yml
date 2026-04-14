@@ -31,4 +31,6 @@ jobs:
             set -euo pipefail
             cd /home/ec2-user/ai-speaker
             git pull origin main
-            docker compose -f docker-compose.dev.yml up -d --build
+            docker compose -f docker-compose.dev.yml build --no-cache
+            docker compose -f docker-compose.dev.yml up -d
+            docker image prune -f
