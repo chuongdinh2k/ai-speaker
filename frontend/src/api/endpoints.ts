@@ -31,18 +31,42 @@ export const conversationsApi = {
   delete: (id: string) => client.delete(`/conversations/${id}`),
 }
 
+export interface MessageOut {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  audio_url: string | null
+}
+
 export interface ChatSendResponse {
-  user_message: { id: string; content: string }
-  assistant_message: { id: string; content: string; audio_url: string | null }
+  user_message: MessageOut
+  assistant_message: MessageOut
+}
+
+export interface ChatHistoryResponse {
+  messages: MessageOut[]
+  next_cursor: string | null
 }
 
 export const chatApi = {
-  send: (conversation_id: string, content: string, reply_with_voice: boolean) =>
-    client.post<ChatSendResponse>("/chat/send", { conversation_id, content, reply_with_voice }),
+  history: (conversation_id: string, cursor?: string) =>
+    client.get<ChatHistoryResponse>(`/chat/${conversation_id}/messages`, {
+      params: cursor ? { cursor } : undefined,
+    }),
 
-  transcribe: (audioBlob: Blob) => {
+  sendText: (conversation_id: string, content: string, reply_with_voice: boolean) => {
     const form = new FormData()
-    form.append("file", audioBlob, "audio.webm")
-    return client.post<{ text: string }>("/voice/transcribe", form)
+    form.append("conversation_id", conversation_id)
+    form.append("content", content)
+    form.append("reply_with_voice", String(reply_with_voice))
+    return client.post<ChatSendResponse>("/chat/send", form)
+  },
+
+  sendAudio: (conversation_id: string, audioBlob: Blob, reply_with_voice: boolean) => {
+    const form = new FormData()
+    form.append("conversation_id", conversation_id)
+    form.append("audio", audioBlob, "audio.webm")
+    form.append("reply_with_voice", String(reply_with_voice))
+    return client.post<ChatSendResponse>("/chat/send", form)
   },
 }
