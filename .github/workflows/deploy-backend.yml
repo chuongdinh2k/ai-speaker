@@ -30,7 +30,17 @@ jobs:
           script: |
             set -euo pipefail
             cd /home/ec2-user/ai-speaker
+
+            # Auto-detect public IP from EC2 instance metadata (IMDSv2)
+            TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+              -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+            PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+              http://169.254.169.254/latest/meta-data/public-ipv4)
+
+            # Write VITE_API_URL to .env (port 8000 is the backend api)
+            echo "VITE_API_URL=http://${PUBLIC_IP}:8000" > .env
+
             git pull origin main
-            docker compose -f docker-compose.dev.yml build --no-cache
+            docker compose -f docker-compose.dev.yml build
             docker compose -f docker-compose.dev.yml up -d
             docker image prune -f
