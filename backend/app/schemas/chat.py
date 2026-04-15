@@ -22,6 +22,7 @@ class MessageOut(BaseModel):
 class ChatSendResponse(BaseModel):
     user_message: MessageOut
     assistant_message: MessageOut
+    active_vocab: list[str] = []
 
 
 class ChatHistoryResponse(BaseModel):

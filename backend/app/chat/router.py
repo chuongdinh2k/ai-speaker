@@ -42,6 +42,7 @@ async def send_message(
             audio_bytes=audio_bytes,
             audio_filename=audio_filename,
             reply_with_voice=reply_with_voice,
+            user_id=UUID(user["sub"]),
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -64,6 +65,7 @@ async def send_message(
             audio_url=result["audio_url"],
             created_at=result["created_at_assistant"],
         ),
+        active_vocab=result.get("active_vocab", []),
     )
 
 
