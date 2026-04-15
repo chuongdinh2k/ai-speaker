@@ -43,25 +43,96 @@ async def get_recent_messages(db: AsyncSession, conversation_id: UUID) -> list[d
     messages = result.scalars().all()
     return [{"role": m.role, "content": m.content} for m in reversed(messages)]
 
-async def get_system_prompt(db: AsyncSession, conversation_id: UUID, redis_client) -> str:
-    """Get topic system prompt, cached in Redis."""
-    cache_key = f"system_prompt:{conversation_id}"
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return cached
-
-    result = await db.execute(
-        text("""
-            SELECT t.system_prompt FROM topics t
-            JOIN conversations c ON c.topic_id = t.id
-            WHERE c.id = :conv_id
-        """),
-        {"conv_id": str(conversation_id)},
+async def get_system_prompt(
+    db: AsyncSession,
+    conversation_id: UUID,
+    redis_client,
+    user_id: UUID | None = None,
+    topic_id: UUID | None = None,
+) -> str:
+    """Get enriched system prompt with vocab context. Cached in Redis."""
+    from app.vocabularies.service import (
+        get_active_vocab_words,
+        get_vocab_history_words,
+        SYSTEM_PROMPT_VOCAB_KEY,
+        SYSTEM_PROMPT_TTL,
     )
-    row = result.fetchone()
-    prompt = row.system_prompt if row and row.system_prompt else "You are a helpful assistant."
-    await redis_client.setex(cache_key, 3600, prompt)
-    return prompt
+
+    # Resolve topic_id if not provided
+    if topic_id is None:
+        result = await db.execute(
+            text("SELECT topic_id FROM conversations WHERE id = :conv_id"),
+            {"conv_id": str(conversation_id)},
+        )
+        row = result.fetchone()
+        topic_id = row.topic_id if row else None
+
+    # Check full cached system prompt (with vocab already injected)
+    if user_id and topic_id:
+        cache_key = SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id)
+        try:
+            cached = await redis_client.get(cache_key)
+            if cached:
+                return cached
+        except Exception:
+            pass
+
+    # Fetch base system prompt from DB (old per-conversation cache key still useful for base prompt)
+    base_cache_key = f"system_prompt:{conversation_id}"
+    cached_base = None
+    try:
+        cached_base = await redis_client.get(base_cache_key)
+    except Exception:
+        pass
+
+    if cached_base:
+        base_prompt = cached_base
+    else:
+        result = await db.execute(
+            text("""
+                SELECT t.system_prompt FROM topics t
+                JOIN conversations c ON c.topic_id = t.id
+                WHERE c.id = :conv_id
+            """),
+            {"conv_id": str(conversation_id)},
+        )
+        row = result.fetchone()
+        base_prompt = row.system_prompt if row and row.system_prompt else "You are a helpful assistant."
+        try:
+            await redis_client.setex(base_cache_key, 3600, base_prompt)
+        except Exception:
+            pass
+
+    # Build vocab-enriched prompt
+    if user_id and topic_id:
+        active_words = await get_active_vocab_words(db, redis_client, user_id, topic_id)
+        history_words = await get_vocab_history_words(db, redis_client, user_id, topic_id)
+
+        vocab_section = ""
+        if active_words:
+            vocab_section += f"\nActive vocabulary to focus on: {', '.join(active_words)}."
+        if history_words:
+            vocab_section += f"\nRecent vocabulary history: {', '.join(history_words)}."
+
+        question_instruction = (
+            "\n\nAlways end your response with a question to the user based on the conversation context. "
+            "Exception: if the user's last message was already a question, you do not need to ask one back. "
+            "If the user gave a very short or one-word answer, ask something to draw them out."
+        )
+
+        full_prompt = base_prompt + vocab_section + question_instruction
+
+        try:
+            await redis_client.setex(
+                SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id),
+                SYSTEM_PROMPT_TTL,
+                full_prompt,
+            )
+        except Exception:
+            pass
+        return full_prompt
+
+    return base_prompt
 
 async def build_messages(system_prompt: str, semantic_context: list[dict], recent: list[dict], user_text: str) -> list[dict]:
     """Assemble the messages list for the LLM call."""
