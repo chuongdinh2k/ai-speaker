@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     bucket         = "ai-speaker-terraform-state"
     key            = "frontend/production/terraform.tfstate"
-    region         = "ap-southeast-2"
+    region         = "ap-southeast-1"
     dynamodb_table = "ai-speaker-terraform-locks"
     encrypt        = true
   }
