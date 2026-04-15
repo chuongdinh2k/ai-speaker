@@ -41,6 +41,7 @@ export interface MessageOut {
 export interface ChatSendResponse {
   user_message: MessageOut
   assistant_message: MessageOut
+  active_vocab: string[]
 }
 
 export interface ChatHistoryResponse {
@@ -69,4 +70,24 @@ export const chatApi = {
     form.append("reply_with_voice", String(reply_with_voice))
     return client.post<ChatSendResponse>("/chat/send", form)
   },
+}
+
+export interface VocabularyItem {
+  id: string
+  user_id: string
+  topic_id: string
+  word: string
+  added_at: string
+  usage_count: number
+  is_active: boolean
+}
+
+export const vocabularyApi = {
+  list: (topic_id: string) =>
+    client.get<VocabularyItem[]>("/vocabularies", { params: { topic_id } }),
+  add: (topic_id: string, word: string) =>
+    client.post<VocabularyItem>("/vocabularies", { topic_id, word }),
+  delete: (id: string) => client.delete(`/vocabularies/${id}`),
+  activate: (id: string) => client.patch<VocabularyItem>(`/vocabularies/${id}/activate`),
+  deactivate: (id: string) => client.patch<VocabularyItem>(`/vocabularies/${id}/deactivate`),
 }
