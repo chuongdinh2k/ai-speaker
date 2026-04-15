@@ -11,6 +11,7 @@ export function useChat(conversationId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeVocab, setActiveVocab] = useState<string[]>([])
 
   // Load history on mount
   useEffect(() => {
@@ -39,8 +40,8 @@ export function useChat(conversationId: string) {
     setLoading(true)
     try {
       const res = await chatApi.sendText(conversationId, content, replyWithVoice)
-      const { user_message, assistant_message } = res.data
-      // Replace the optimistic user message with the real one (includes audio_url)
+      const { user_message, assistant_message, active_vocab } = res.data
+      if (active_vocab?.length) setActiveVocab(active_vocab)
       setMessages(prev => [
         ...prev.slice(0, -1),
         { role: "user", content: user_message.content, audio_url: user_message.audio_url },
@@ -58,7 +59,8 @@ export function useChat(conversationId: string) {
     setLoading(true)
     try {
       const res = await chatApi.sendAudio(conversationId, audioBlob, replyWithVoice)
-      const { user_message, assistant_message } = res.data
+      const { user_message, assistant_message, active_vocab } = res.data
+      if (active_vocab?.length) setActiveVocab(active_vocab)
       setMessages(prev => [
         ...prev,
         { role: "user", content: user_message.content, audio_url: user_message.audio_url },
@@ -71,5 +73,5 @@ export function useChat(conversationId: string) {
     }
   }, [conversationId])
 
-  return { messages, loading, error, sendText, sendVoice }
+  return { messages, loading, error, sendText, sendVoice, activeVocab }
 }
