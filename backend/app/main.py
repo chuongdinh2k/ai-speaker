@@ -6,6 +6,7 @@ from app.conversations.router import router as conversations_router
 from app.voice.router import router as voice_router
 from app.chat.router import router as chat_router
 from app.admin.router import router as admin_router
+from app.vocabularies.router import router as vocabularies_router
 
 app = FastAPI(title="AI Speaker")
 
@@ -23,6 +24,7 @@ app.include_router(conversations_router)
 app.include_router(voice_router)
 app.include_router(chat_router)
 app.include_router(admin_router)
+app.include_router(vocabularies_router)
 
 @app.get("/health")
 async def health():
