@@ -36,11 +36,18 @@ export default function TopicsPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         {topics.map(t => (
-          <button key={t.id} onClick={() => startChat(t.id)}
-            className="bg-white border rounded-lg p-4 text-left hover:shadow-md transition">
-            <h2 className="font-semibold">{t.name}</h2>
-            {t.description && <p className="text-gray-500 text-sm mt-1">{t.description}</p>}
-          </button>
+          <div key={t.id} className="bg-white border rounded-lg p-4 space-y-2 hover:shadow-md transition">
+            <button onClick={() => startChat(t.id)} className="w-full text-left">
+              <h2 className="font-semibold">{t.name}</h2>
+              {t.description && <p className="text-gray-500 text-sm mt-1">{t.description}</p>}
+            </button>
+            <button
+              onClick={() => navigate(`/topics/${t.id}/vocabulary`)}
+              className="text-xs text-blue-500 hover:underline"
+            >
+              Vocabulary →
+            </button>
+          </div>
         ))}
       </div>
       <div>
