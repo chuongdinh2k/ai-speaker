@@ -12,3 +12,14 @@ output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID — used by CI/CD cache invalidation"
   value       = aws_cloudfront_distribution.frontend.id
 }
+
+output "acm_certificate_validation_records" {
+  description = "DNS CNAME records to add in Namecheap to validate the ACM certificate"
+  value = var.domain_name != "" ? {
+    for dvo in aws_acm_certificate.frontend[0].domain_validation_options : dvo.domain_name => {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  } : {}
+}

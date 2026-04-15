@@ -12,3 +12,10 @@ variable "region" {
   description = "AWS region (used for reference only — provider is configured at root)"
   type        = string
 }
+
+variable "domain_name" {
+  description = "Custom domain for the CloudFront distribution (e.g. stephendinh.best). Leave empty to use the default CloudFront domain."
+  type        = string
+  default     = ""
+}
+

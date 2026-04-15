@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.us_east_1]
+    }
+  }
+}
+
 locals {
   bucket_name = "${var.project_name}-frontend-${var.environment}"
 }
@@ -29,10 +38,37 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_acm_certificate" "frontend" {
+  count             = var.domain_name != "" ? 1 : 0
+  provider          = aws.us_east_1
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+# This resource blocks Terraform until the cert is validated.
+# You must first add the CNAME records from the acm_certificate_validation_records
+# output to Namecheap DNS, then re-run terraform apply.
+resource "aws_acm_certificate_validation" "frontend" {
+  count           = var.domain_name != "" ? 1 : 0
+  provider        = aws.us_east_1
+  certificate_arn = aws_acm_certificate.frontend[0].arn
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
   price_class         = "PriceClass_All"
+  aliases             = var.domain_name != "" ? [var.domain_name] : []
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -80,7 +116,10 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.domain_name == ""
+    acm_certificate_arn            = var.domain_name != "" ? aws_acm_certificate_validation.frontend[0].certificate_arn : null
+    ssl_support_method             = var.domain_name != "" ? "sni-only" : null
+    minimum_protocol_version       = var.domain_name != "" ? "TLSv1.2_2021" : null
   }
 
   tags = {

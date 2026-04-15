@@ -6,11 +6,8 @@ on:
       - main
     paths:
       - "backend/**"
-      - "frontend/**"
       - "docker-compose.dev.yml"
       - ".github/workflows/deploy-backend.yml"
-      - "nginx/**"
-      - "docker-compose.dev.yml"
 
 concurrency:
   group: deploy-backend
