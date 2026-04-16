@@ -25,6 +25,8 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     user = result.scalar_one_or_none()
     if not user or not pwd_context.verify(password, user.password_hash):
         raise ValueError("Invalid credentials")
+    if user.deleted_at is not None:
+        raise ValueError("Invalid credentials")
     return user
 
 def create_access_token(user: User) -> str:

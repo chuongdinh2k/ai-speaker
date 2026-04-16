@@ -3,7 +3,7 @@ from sqlalchemy import select
 from app.models.topic import Topic
 
 async def list_topics(db: AsyncSession) -> list[Topic]:
-    result = await db.execute(select(Topic))
+    result = await db.execute(select(Topic).where(Topic.deleted_at.is_(None)))
     return result.scalars().all()
 
 async def create_topic(db: AsyncSession, name: str, description: str | None, system_prompt: str | None) -> Topic:
@@ -14,7 +14,7 @@ async def create_topic(db: AsyncSession, name: str, description: str | None, sys
     return topic
 
 async def update_topic(db: AsyncSession, topic_id: str, name: str | None, description: str | None, system_prompt: str | None) -> Topic:
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
+    result = await db.execute(select(Topic).where(Topic.id == topic_id, Topic.deleted_at.is_(None)))
     topic = result.scalar_one_or_none()
     if not topic:
         raise ValueError("Topic not found")

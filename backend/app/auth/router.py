@@ -35,7 +35,9 @@ async def logout():
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.id == UUID(user["sub"])))
+    result = await db.execute(
+        select(User).where(User.id == UUID(user["sub"]), User.deleted_at.is_(None))
+    )
     db_user = result.scalar_one_or_none()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
