@@ -109,3 +109,35 @@ export const vocabularyApi = {
   activate: (id: string) => client.patch<VocabularyItem>(`/vocabularies/${id}/activate`),
   deactivate: (id: string) => client.patch<VocabularyItem>(`/vocabularies/${id}/deactivate`),
 }
+
+export interface AdminUser {
+  id: string
+  email: string
+  role: string
+  level: string
+  created_at: string
+}
+
+export interface AdminTopic {
+  id: string
+  name: string
+  description: string | null
+  system_prompt: string | null
+  created_at: string
+}
+
+export const adminApi = {
+  // Users
+  listUsers: () => client.get<AdminUser[]>("/admin/users"),
+  updatePassword: (id: string, password: string) =>
+    client.patch(`/admin/users/${id}/password`, { password }),
+  deleteUser: (id: string) => client.delete(`/admin/users/${id}`),
+
+  // Topics
+  listTopics: () => client.get<AdminTopic[]>("/admin/topics"),
+  createTopic: (name: string, description?: string, system_prompt?: string) =>
+    client.post<AdminTopic>("/admin/topics", { name, description, system_prompt }),
+  updateTopic: (id: string, description?: string, system_prompt?: string) =>
+    client.patch<AdminTopic>(`/admin/topics/${id}`, { description, system_prompt }),
+  deleteTopic: (id: string) => client.delete(`/admin/topics/${id}`),
+}
