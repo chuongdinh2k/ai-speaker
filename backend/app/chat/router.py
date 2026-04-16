@@ -34,6 +34,14 @@ async def send_message(
         audio_bytes = await audio.read()
         audio_filename = audio.filename or "audio.webm"
 
+    user_id = UUID(user["sub"])
+
+    # Fetch user level from DB
+    from app.models.user import User as UserModel
+    user_row = await db.execute(select(UserModel).where(UserModel.id == user_id))
+    db_user = user_row.scalar_one_or_none()
+    user_level = db_user.level if db_user else None
+
     redis_client = await get_redis()
     try:
         result = await handle_chat_message(
@@ -42,7 +50,8 @@ async def send_message(
             audio_bytes=audio_bytes,
             audio_filename=audio_filename,
             reply_with_voice=reply_with_voice,
-            user_id=UUID(user["sub"]),
+            user_id=user_id,
+            user_level=user_level,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))

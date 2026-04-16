@@ -29,6 +29,7 @@ async def handle_chat_message(
     audio_filename: str,
     reply_with_voice: bool,
     user_id: UUID | None = None,
+    user_level: str | None = None,
 ) -> dict:
     """
     Full RAG chat pipeline. Returns dict with user/assistant message IDs, content, audio URLs, and active_vocab.
@@ -71,6 +72,7 @@ async def handle_chat_message(
         db, conversation_id, redis_client,
         user_id=user_id,
         topic_id=topic_id,
+        user_level=user_level,
     )
 
     # 6. Build prompt and call LLM

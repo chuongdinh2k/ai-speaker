@@ -291,3 +291,54 @@ async def test_get_system_prompt_no_level_omits_level_block(db_session):
     # No level-specific text
     assert "very simple words" not in prompt
     assert "deep reflection" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_handle_chat_message_passes_level_to_prompt(db_session):
+    """handle_chat_message passes user_level through to get_system_prompt."""
+    from app.chat.service import handle_chat_message
+    from app.models.user import User
+    from app.models.topic import Topic
+    from app.models.conversation import Conversation
+    from app.auth.service import pwd_context
+    from uuid import uuid4
+
+    user = User(email=f"svcl{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user", level="B2")
+    topic = Topic(name="Svc Level Topic", system_prompt="Be helpful.")
+    db_session.add(user)
+    db_session.add(topic)
+    await db_session.commit()
+    await db_session.refresh(user)
+    await db_session.refresh(topic)
+    conv = Conversation(user_id=user.id, topic_id=topic.id)
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.setex = AsyncMock()
+
+    captured_level = {}
+
+    async def mock_get_system_prompt(db, conv_id, redis, user_id=None, topic_id=None, user_level=None):
+        captured_level["value"] = user_level
+        return "mocked prompt"
+
+    with patch("app.chat.service.openai_client") as mock_llm, \
+         patch("app.chat.rag.openai_client") as mock_emb, \
+         patch("app.chat.service.get_system_prompt", side_effect=mock_get_system_prompt):
+        mock_emb.embeddings.create = AsyncMock(
+            return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
+        )
+        mock_llm.chat.completions.create = AsyncMock(
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="Good answer."))])
+        )
+        await handle_chat_message(
+            db_session, mock_redis, conv.id,
+            "Hello?", None, "audio.webm", False,
+            user_id=user.id,
+            user_level="B2",
+        )
+
+    assert captured_level.get("value") == "B2"
