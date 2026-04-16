@@ -6,13 +6,32 @@ interface Props {
   disabled: boolean
 }
 
+const STORAGE_KEY = "replyWithVoice"
+
+function getStoredVoicePref(): boolean {
+  try {
+    const val = localStorage.getItem(STORAGE_KEY)
+    return val === null ? true : val === "true"
+  } catch {
+    return true
+  }
+}
+
 export default function MessageInput({ onSendText, onSendVoice, disabled }: Props) {
   const [text, setText] = useState("")
-  const [replyWithVoice, setReplyWithVoice] = useState(false)
+  const [replyWithVoice, setReplyWithVoice] = useState(getStoredVoicePref)
   const [recording, setRecording] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+
+  const toggleVoicePref = () => {
+    setReplyWithVoice(prev => {
+      const next = !prev
+      try { localStorage.setItem(STORAGE_KEY, String(next)) } catch {}
+      return next
+    })
+  }
 
   const handleSend = () => {
     if (!text.trim()) return
@@ -22,11 +41,9 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
 
   const toggleRecording = async () => {
     if (recording) {
-      // Second click: stop and send
       mediaRef.current?.stop()
       setRecording(false)
     } else {
-      // First click: start recording
       setMicError(null)
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -47,29 +64,38 @@ export default function MessageInput({ onSendText, onSendVoice, disabled }: Prop
   }
 
   return (
-    <div className="flex flex-col border-t bg-white">
+    <div className="border-t bg-white safe-bottom">
       {micError && <div className="text-red-500 text-xs px-4 pt-2">{micError}</div>}
-      <div className="flex items-center gap-2 p-4">
+      <div className="flex items-center gap-2 px-3 py-3">
         <input
-          value={text} onChange={e => setText(e.target.value)}
+          value={text}
+          onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder="Type a message..." disabled={disabled || recording}
-          className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Type a message..."
+          disabled={disabled || recording}
+          className="flex-1 min-w-0 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button onClick={handleSend} disabled={disabled || recording || !text.trim()}
-          className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
+        <button
+          onClick={handleSend}
+          disabled={disabled || recording || !text.trim()}
+          className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-700 disabled:opacity-50 shrink-0"
+        >
           Send
         </button>
         <button
           onClick={toggleRecording}
           disabled={disabled}
-          className={`px-4 py-2 rounded text-sm ${recording ? "bg-red-500 text-white animate-pulse" : "bg-gray-200 text-gray-700"} hover:opacity-80 disabled:opacity-50`}>
-          {recording ? "● Stop" : "Voice"}
+          className={`px-3 py-2 rounded-full text-sm shrink-0 ${recording ? "bg-red-500 text-white animate-pulse" : "bg-gray-200 text-gray-700"} hover:opacity-80 disabled:opacity-50`}
+        >
+          {recording ? "■" : "🎤"}
         </button>
-        <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
-          <input type="checkbox" checked={replyWithVoice} onChange={e => setReplyWithVoice(e.target.checked)} />
-          Voice reply
-        </label>
+        <button
+          onClick={toggleVoicePref}
+          title={replyWithVoice ? "Voice reply on" : "Voice reply off"}
+          className={`px-3 py-2 rounded-full text-sm shrink-0 ${replyWithVoice ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"} hover:opacity-80`}
+        >
+          🔊
+        </button>
       </div>
     </div>
   )
