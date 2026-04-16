@@ -4,15 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from passlib.context import CryptContext
 from app.database import get_db
 from app.models.topic import Topic
 from app.models.user import User
 from app.auth.dependencies import require_admin
+from app.auth.service import pwd_context
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -60,12 +58,12 @@ async def list_users(
 
 @router.patch("/users/{user_id}/password")
 async def update_user_password(
-    user_id: str,
+    user_id: UUID,
     body: UpdatePasswordRequest,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
-    result = await db.execute(select(User).where(User.id == UUID(user_id), User.deleted_at.is_(None)))
+    result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -75,11 +73,11 @@ async def update_user_password(
 
 @router.delete("/users/{user_id}")
 async def delete_user(
-    user_id: str,
+    user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
-    result = await db.execute(select(User).where(User.id == UUID(user_id), User.deleted_at.is_(None)))
+    result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -122,12 +120,12 @@ async def create_topic(
 
 @router.patch("/topics/{topic_id}", response_model=AdminTopicOut)
 async def update_topic(
-    topic_id: str,
+    topic_id: UUID,
     body: UpdateTopicRequest,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
-    result = await db.execute(select(Topic).where(Topic.id == UUID(topic_id), Topic.deleted_at.is_(None)))
+    result = await db.execute(select(Topic).where(Topic.id == topic_id, Topic.deleted_at.is_(None)))
     topic = result.scalar_one_or_none()
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
@@ -144,11 +142,11 @@ async def update_topic(
 
 @router.delete("/topics/{topic_id}")
 async def delete_topic(
-    topic_id: str,
+    topic_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
-    result = await db.execute(select(Topic).where(Topic.id == UUID(topic_id), Topic.deleted_at.is_(None)))
+    result = await db.execute(select(Topic).where(Topic.id == topic_id, Topic.deleted_at.is_(None)))
     topic = result.scalar_one_or_none()
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
