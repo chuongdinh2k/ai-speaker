@@ -53,7 +53,7 @@ export default function VocabularyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 max-w-2xl mx-auto space-y-6">
+    <div className="min-h-dvh bg-gray-50 px-4 py-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <button onClick={() => navigate("/topics")} className="text-sm text-blue-600 hover:underline">
           ← Back to Topics
@@ -80,7 +80,34 @@ export default function VocabularyPage() {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <table className="w-full bg-white border rounded-lg text-sm">
+      {/* Mobile card list */}
+      <div className="space-y-2 sm:hidden">
+        {words.map(item => (
+          <div key={item.id} className="bg-white border rounded-xl px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">{item.word}</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {new Date(item.added_at).toLocaleDateString()} · {item.usage_count} uses
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleToggleActive(item)}
+                className={`px-2 py-1 rounded-full text-xs ${item.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+              >
+                {item.is_active ? "Active" : "Off"}
+              </button>
+              <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+            </div>
+          </div>
+        ))}
+        {words.length === 0 && (
+          <p className="text-center text-gray-400 text-sm py-8">No words yet. Add your first word above.</p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <table className="hidden sm:table w-full bg-white border rounded-lg text-sm">
         <thead>
           <tr className="border-b text-left text-gray-500">
             <th className="px-4 py-2">Word</th>
@@ -105,12 +132,7 @@ export default function VocabularyPage() {
                 </button>
               </td>
               <td className="px-4 py-2">
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="text-red-400 hover:text-red-600 text-xs"
-                >
-                  Delete
-                </button>
+                <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs">Delete</button>
               </td>
             </tr>
           ))}
