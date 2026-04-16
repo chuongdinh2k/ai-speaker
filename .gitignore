@@ -39,3 +39,7 @@ frontend/.env
 docs/*
 
 CLAUDE.md
+
+.agents/*
+
+skills-lock.json
