@@ -9,6 +9,7 @@ from app.redis_client import get_redis
 from app.auth.dependencies import get_current_user
 from app.chat.service import handle_chat_message
 from app.models.message import Message
+from app.models.user import User
 from app.schemas.chat import ChatSendResponse, ChatHistoryResponse, MessageOut
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -37,10 +38,13 @@ async def send_message(
     user_id = UUID(user["sub"])
 
     # Fetch user level from DB
-    from app.models.user import User as UserModel
-    user_row = await db.execute(select(UserModel).where(UserModel.id == user_id))
-    db_user = user_row.scalar_one_or_none()
-    user_level = db_user.level if db_user else None
+    user_level = None
+    try:
+        user_row = await db.execute(select(User).where(User.id == user_id))
+        db_user = user_row.scalar_one_or_none()
+        user_level = db_user.level if db_user else None
+    except Exception:
+        logging.warning("Failed to fetch user level, defaulting to None")
 
     redis_client = await get_redis()
     try:
