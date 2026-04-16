@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react"
-import { chatApi } from "../api/endpoints"
+import { useState, useCallback, useEffect, useRef } from "react"
+import { chatApi, conversationsApi } from "../api/endpoints"
 
 export interface ChatMessage {
   role: "user" | "assistant"
@@ -12,10 +12,13 @@ export function useChat(conversationId: string) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeVocab, setActiveVocab] = useState<string[]>([])
+  const [topicName, setTopicName] = useState<string>("")
+  const lastAudioUrlRef = useRef<string | null>(null)
 
-  // Load history on mount
+  // Load history and topic name on mount
   useEffect(() => {
     let cancelled = false
+
     async function loadHistory() {
       try {
         const res = await chatApi.history(conversationId)
@@ -30,9 +33,38 @@ export function useChat(conversationId: string) {
         // Silently ignore — empty chat is fine
       }
     }
+
+    async function loadTopicName() {
+      try {
+        const res = await conversationsApi.list()
+        const conv = res.data.find(c => c.id === conversationId)
+        if (conv && !cancelled) setTopicName(conv.topic_name)
+      } catch {
+        // Not critical
+      }
+    }
+
     loadHistory()
+    loadTopicName()
     return () => { cancelled = true }
   }, [conversationId])
+
+  // Auto-play latest assistant audio
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    if (
+      last &&
+      last.role === "assistant" &&
+      last.audio_url &&
+      last.audio_url !== lastAudioUrlRef.current
+    ) {
+      lastAudioUrlRef.current = last.audio_url
+      const audio = new Audio(last.audio_url)
+      audio.play().catch(() => {
+        // Auto-play blocked by browser — user will need to tap play manually
+      })
+    }
+  }, [messages])
 
   const sendText = useCallback(async (content: string, replyWithVoice: boolean) => {
     setError(null)
@@ -73,5 +105,5 @@ export function useChat(conversationId: string) {
     }
   }, [conversationId])
 
-  return { messages, loading, error, sendText, sendVoice, activeVocab }
+  return { messages, loading, error, sendText, sendVoice, activeVocab, topicName }
 }
