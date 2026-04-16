@@ -3,6 +3,8 @@ import LoginPage from "./pages/LoginPage"
 import TopicsPage from "./pages/TopicsPage"
 import ChatPage from "./pages/ChatPage"
 import VocabularyPage from "./pages/VocabularyPage"
+import ProfilePage from "./pages/ProfilePage"
+import GlobalVocabularyPage from "./pages/GlobalVocabularyPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token")
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="/topics" element={<PrivateRoute><TopicsPage /></PrivateRoute>} />
         <Route path="/chat/:conversationId" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
         <Route path="/topics/:topicId/vocabulary" element={<PrivateRoute><VocabularyPage /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/vocabulary" element={<PrivateRoute><GlobalVocabularyPage /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/topics" replace />} />
       </Routes>
     </BrowserRouter>
