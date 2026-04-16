@@ -16,3 +16,16 @@ class VocabularyResponse(BaseModel):
     added_at: datetime
     usage_count: int
     is_active: bool
+
+
+class VocabularyWithTopicResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    topic_id: UUID
+    topic_name: str
+    word: str
+    added_at: datetime
+    usage_count: int
+    is_active: bool

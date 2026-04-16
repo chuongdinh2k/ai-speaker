@@ -4,16 +4,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.redis_client import get_redis
 from app.auth.dependencies import get_current_user
-from app.schemas.vocabulary import VocabularyCreate, VocabularyResponse
+from app.schemas.vocabulary import VocabularyCreate, VocabularyResponse, VocabularyWithTopicResponse
 from app.vocabularies.service import (
     list_vocabularies,
     add_vocabulary,
     delete_vocabulary,
     activate_vocabulary,
     deactivate_vocabulary,
+    list_all_vocabularies,
 )
 
 router = APIRouter(prefix="/vocabularies", tags=["vocabularies"])
+
+
+@router.get("/all", response_model=list[VocabularyWithTopicResponse])
+async def get_all_vocabularies(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = await list_all_vocabularies(db, UUID(user["sub"]))
+    return rows
 
 
 @router.get("", response_model=list[VocabularyResponse])

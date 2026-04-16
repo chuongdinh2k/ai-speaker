@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.vocabulary import UserVocabulary
+from app.models.topic import Topic
 
 ACTIVE_VOCAB_KEY = "active_vocab:{user_id}:{topic_id}"
 VOCAB_HISTORY_KEY = "vocab_history:{user_id}:{topic_id}"
@@ -177,3 +178,26 @@ async def increment_usage_counts(db: AsyncSession, active_words: list[str], repl
         await db.commit()
     except Exception:
         logging.warning("Failed to increment vocab usage_count")
+
+
+async def list_all_vocabularies(db: AsyncSession, user_id: UUID) -> list[dict]:
+    result = await db.execute(
+        select(UserVocabulary, Topic.name.label("topic_name"))
+        .join(Topic, UserVocabulary.topic_id == Topic.id)
+        .where(UserVocabulary.user_id == user_id)
+        .order_by(Topic.name, UserVocabulary.added_at.desc())
+    )
+    rows = result.all()
+    return [
+        {
+            "id": vocab.id,
+            "user_id": vocab.user_id,
+            "topic_id": vocab.topic_id,
+            "topic_name": topic_name,
+            "word": vocab.word,
+            "added_at": vocab.added_at,
+            "usage_count": vocab.usage_count,
+            "is_active": vocab.is_active,
+        }
+        for vocab, topic_name in rows
+    ]
