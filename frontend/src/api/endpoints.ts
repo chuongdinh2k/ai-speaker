@@ -10,7 +10,18 @@ export interface Topic {
 export interface Conversation {
   id: string
   topic_id: string
+  topic_name: string
   created_at: string
+  message_count: number
+}
+
+export interface UserProfile {
+  id: string
+  email: string
+  role: string
+  level: string
+  avatar_url: string | null
+  total_messages: number
 }
 
 export const authApi = {
@@ -19,6 +30,7 @@ export const authApi = {
   login: (email: string, password: string) =>
     client.post<{ access_token: string }>("/auth/login", { email, password }),
   logout: () => client.post("/auth/logout"),
+  me: () => client.get<UserProfile>("/auth/me"),
 }
 
 export const topicsApi = {
@@ -82,9 +94,15 @@ export interface VocabularyItem {
   is_active: boolean
 }
 
+export interface VocabularyItemWithTopic extends VocabularyItem {
+  topic_name: string
+}
+
 export const vocabularyApi = {
   list: (topic_id: string) =>
     client.get<VocabularyItem[]>("/vocabularies", { params: { topic_id } }),
+  listAll: () =>
+    client.get<VocabularyItemWithTopic[]>("/vocabularies/all"),
   add: (topic_id: string, word: string) =>
     client.post<VocabularyItem>("/vocabularies", { topic_id, word }),
   delete: (id: string) => client.delete(`/vocabularies/${id}`),
