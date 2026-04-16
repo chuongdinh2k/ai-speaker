@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.topic import Topic
 
 
 async def upsert_conversation(db: AsyncSession, user_id: UUID, topic_id: UUID) -> Conversation:
@@ -33,17 +34,20 @@ async def list_conversations(db: AsyncSession, user_id: UUID) -> list[dict]:
         .scalar_subquery()
     )
     result = await db.execute(
-        select(Conversation, msg_count.label("message_count")).where(
+        select(Conversation, Topic.name.label("topic_name"), msg_count.label("message_count"))
+        .join(Topic, Conversation.topic_id == Topic.id)
+        .where(
             Conversation.user_id == user_id,
             Conversation.deleted_at == None,
         )
     )
     rows = result.all()
     out = []
-    for conv, count in rows:
+    for conv, topic_name, count in rows:
         out.append({
             "id": conv.id,
             "topic_id": conv.topic_id,
+            "topic_name": topic_name,
             "created_at": conv.created_at,
             "message_count": count,
         })

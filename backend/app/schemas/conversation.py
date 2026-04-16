@@ -12,5 +12,6 @@ class ConversationResponse(BaseModel):
 
     id: UUID
     topic_id: UUID
+    topic_name: str = ""
     created_at: datetime
     message_count: int = 0
