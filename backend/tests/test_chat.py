@@ -180,3 +180,114 @@ async def test_get_chat_history_paginated(client, db_session):
     body2 = resp2.json()
     assert len(body2["messages"]) == 5
     assert body2["next_cursor"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_system_prompt_injects_level_instruction(db_session):
+    """Level instruction appears in the returned prompt."""
+    from app.chat.rag import get_system_prompt
+    from app.models.user import User
+    from app.models.topic import Topic
+    from app.models.conversation import Conversation
+    from app.auth.service import pwd_context
+    from uuid import uuid4
+
+    user = User(email=f"lvl{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user", level="A1")
+    topic = Topic(name="Level Topic", system_prompt="You are a language tutor.")
+    db_session.add(user)
+    db_session.add(topic)
+    await db_session.commit()
+    await db_session.refresh(user)
+    await db_session.refresh(topic)
+    conv = Conversation(user_id=user.id, topic_id=topic.id)
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.setex = AsyncMock()
+
+    prompt = await get_system_prompt(
+        db_session, conv.id, mock_redis,
+        user_id=user.id,
+        topic_id=topic.id,
+        user_level="A1",
+    )
+    assert "very simple words" in prompt
+    assert "very short sentences" in prompt
+
+
+@pytest.mark.asyncio
+async def test_get_system_prompt_different_levels_produce_different_prompts(db_session):
+    """A1 and C2 produce distinct prompt content."""
+    from app.chat.rag import get_system_prompt
+    from app.models.user import User
+    from app.models.topic import Topic
+    from app.models.conversation import Conversation
+    from app.auth.service import pwd_context
+    from uuid import uuid4
+
+    async def make_conv(level):
+        user = User(email=f"lvl{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user", level=level)
+        topic = Topic(name=f"Topic {level}", system_prompt="You are a language tutor.")
+        db_session.add(user)
+        db_session.add(topic)
+        await db_session.commit()
+        await db_session.refresh(user)
+        await db_session.refresh(topic)
+        conv = Conversation(user_id=user.id, topic_id=topic.id)
+        db_session.add(conv)
+        await db_session.commit()
+        await db_session.refresh(conv)
+        return user, conv
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.setex = AsyncMock()
+
+    user_a1, conv_a1 = await make_conv("A1")
+    user_c2, conv_c2 = await make_conv("C2")
+
+    prompt_a1 = await get_system_prompt(db_session, conv_a1.id, mock_redis, user_id=user_a1.id, topic_id=conv_a1.topic_id, user_level="A1")
+    prompt_c2 = await get_system_prompt(db_session, conv_c2.id, mock_redis, user_id=user_c2.id, topic_id=conv_c2.topic_id, user_level="C2")
+
+    assert prompt_a1 != prompt_c2
+    assert "deep reflection" in prompt_c2
+
+
+@pytest.mark.asyncio
+async def test_get_system_prompt_no_level_omits_level_block(db_session):
+    """When user_level is None, no level instruction is injected."""
+    from app.chat.rag import get_system_prompt
+    from app.models.user import User
+    from app.models.topic import Topic
+    from app.models.conversation import Conversation
+    from app.auth.service import pwd_context
+    from uuid import uuid4
+
+    user = User(email=f"nolvl{uuid4()}@test.com", password_hash=pwd_context.hash("pass"), role="user", level="A2")
+    topic = Topic(name="No Level Topic", system_prompt="You are a tutor.")
+    db_session.add(user)
+    db_session.add(topic)
+    await db_session.commit()
+    await db_session.refresh(user)
+    await db_session.refresh(topic)
+    conv = Conversation(user_id=user.id, topic_id=topic.id)
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.setex = AsyncMock()
+
+    prompt = await get_system_prompt(
+        db_session, conv.id, mock_redis,
+        user_id=user.id,
+        topic_id=topic.id,
+        user_level=None,
+    )
+    # No level-specific text
+    assert "very simple words" not in prompt
+    assert "deep reflection" not in prompt

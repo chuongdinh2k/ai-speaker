@@ -9,6 +9,39 @@ from app.config import settings
 
 openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
+LEVEL_INSTRUCTIONS: dict[str, str] = {
+    "A1": (
+        "The user's English level is A1. "
+        "Use very simple words and very short sentences. "
+        "Ask only one very simple yes/no or one-word-answer question."
+    ),
+    "A2": (
+        "The user's English level is A2. "
+        "Use basic vocabulary and short sentences. "
+        "Ask one simple question the user can answer briefly."
+    ),
+    "B1": (
+        "The user's English level is B1. "
+        "Use clear, everyday language with moderate sentence length. "
+        "Ask one open question requiring a few sentences to answer."
+    ),
+    "B2": (
+        "The user's English level is B2. "
+        "Use natural language with some complexity. "
+        "Ask a thoughtful question requiring explanation or opinion."
+    ),
+    "C1": (
+        "The user's English level is C1. "
+        "Use sophisticated vocabulary and varied sentence structures. "
+        "Ask a nuanced question requiring detailed reasoning."
+    ),
+    "C2": (
+        "The user's English level is C2. "
+        "Use full natural fluent English. "
+        "Ask a challenging question that invites deep reflection or debate."
+    ),
+}
+
 async def embed_text(text_content: str) -> list[float]:
     """Embed a string using OpenAI embeddings, return vector."""
     response = await openai_client.embeddings.create(
@@ -49,12 +82,12 @@ async def get_system_prompt(
     redis_client,
     user_id: UUID | None = None,
     topic_id: UUID | None = None,
+    user_level: str | None = None,
 ) -> str:
-    """Get enriched system prompt with vocab context. Cached in Redis."""
+    """Get enriched system prompt with vocab and level context. Cached in Redis."""
     from app.vocabularies.service import (
         get_active_vocab_words,
         get_vocab_history_words,
-        SYSTEM_PROMPT_VOCAB_KEY,
         SYSTEM_PROMPT_TTL,
     )
 
@@ -67,9 +100,10 @@ async def get_system_prompt(
         row = result.fetchone()
         topic_id = row.topic_id if row else None
 
-    # Check full cached system prompt (with vocab already injected)
+    # Check full cached system prompt (with vocab + level already injected)
+    level_key_part = user_level or "none"
     if user_id and topic_id:
-        cache_key = SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id)
+        cache_key = f"system_prompt_vocab:{user_id}:{topic_id}:{level_key_part}"
         try:
             cached = await redis_client.get(cache_key)
             if cached:
@@ -77,7 +111,7 @@ async def get_system_prompt(
         except Exception:
             pass
 
-    # Fetch base system prompt from DB (old per-conversation cache key still useful for base prompt)
+    # Fetch base system prompt from DB
     base_cache_key = f"system_prompt:{conversation_id}"
     cached_base = None
     try:
@@ -114,17 +148,21 @@ async def get_system_prompt(
         if history_words:
             vocab_section += f"\nRecent vocabulary history: {', '.join(history_words)}."
 
+        level_section = ""
+        if user_level and user_level in LEVEL_INSTRUCTIONS:
+            level_section = f"\n\n{LEVEL_INSTRUCTIONS[user_level]}"
+
         question_instruction = (
             "\n\nAlways end your response with a question to the user based on the conversation context. "
             "Exception: if the user's last message was already a question, you do not need to ask one back. "
             "If the user gave a very short or one-word answer, ask something to draw them out."
         )
 
-        full_prompt = base_prompt + vocab_section + question_instruction
+        full_prompt = base_prompt + vocab_section + level_section + question_instruction
 
         try:
             await redis_client.setex(
-                SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id),
+                f"system_prompt_vocab:{user_id}:{topic_id}:{level_key_part}",
                 SYSTEM_PROMPT_TTL,
                 full_prompt,
             )
