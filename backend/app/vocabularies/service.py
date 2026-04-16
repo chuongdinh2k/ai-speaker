@@ -7,7 +7,6 @@ from app.models.vocabulary import UserVocabulary
 
 ACTIVE_VOCAB_KEY = "active_vocab:{user_id}:{topic_id}"
 VOCAB_HISTORY_KEY = "vocab_history:{user_id}:{topic_id}"
-SYSTEM_PROMPT_VOCAB_KEY = "system_prompt_vocab:{user_id}:{topic_id}"
 
 MAX_ACTIVE = 5
 ACTIVE_VOCAB_TTL = 86400   # 24h
@@ -53,7 +52,8 @@ async def delete_vocabulary(db: AsyncSession, redis, vocab_id: UUID, user_id: UU
         await redis.delete(VOCAB_HISTORY_KEY.format(user_id=user_id, topic_id=topic_id))
         if was_active:
             await redis.delete(ACTIVE_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id))
-            await redis.delete(SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id))
+            for _level in ["A1", "A2", "B1", "B2", "C1", "C2", "none"]:
+                await redis.delete(f"system_prompt_vocab:{user_id}:{topic_id}:{_level}")
     except Exception:
         logging.warning("Redis unavailable: could not invalidate caches after delete")
 
@@ -102,7 +102,8 @@ async def deactivate_vocabulary(db: AsyncSession, redis, vocab_id: UUID, user_id
 async def _invalidate_active_caches(redis, user_id: UUID, topic_id: UUID) -> None:
     try:
         await redis.delete(ACTIVE_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id))
-        await redis.delete(SYSTEM_PROMPT_VOCAB_KEY.format(user_id=user_id, topic_id=topic_id))
+        for _level in ["A1", "A2", "B1", "B2", "C1", "C2", "none"]:
+            await redis.delete(f"system_prompt_vocab:{user_id}:{topic_id}:{_level}")
     except Exception:
         logging.warning("Redis unavailable: could not invalidate active vocab caches")
 
