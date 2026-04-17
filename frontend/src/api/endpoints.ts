@@ -15,6 +15,20 @@ export interface Conversation {
   message_count: number
 }
 
+export interface ConversationContext {
+  name: string
+  occupation: string
+  learning_goal: string
+  preferred_tone: "formal" | "casual" | "friendly"
+}
+
+export interface ConversationContextResponse {
+  id: string
+  topic_id: string
+  user_context: ConversationContext | null
+  conversation_prompt: string | null
+}
+
 export interface UserProfile {
   id: string
   email: string
@@ -41,6 +55,8 @@ export const conversationsApi = {
   list: () => client.get<Conversation[]>("/conversations"),
   create: (topic_id: string) => client.post<Conversation>("/conversations", { topic_id }),
   delete: (id: string) => client.delete(`/conversations/${id}`),
+  updateContext: (id: string, data: ConversationContext) =>
+    client.patch<ConversationContextResponse>(`/conversations/${id}/context`, data),
 }
 
 export interface MessageOut {
