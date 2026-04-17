@@ -76,3 +76,45 @@ async def test_list_conversations_includes_message_count(client, db_session):
     convs = resp.json()
     match = next(c for c in convs if c["id"] == conv_id)
     assert match["message_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_update_conversation_context(client, db_session):
+    user, topic, token = await seed_user_and_topic(db_session)
+    r = await client.post("/conversations", json={"topic_id": str(topic.id)},
+                          headers={"Authorization": f"Bearer {token}"})
+    conv_id = r.json()["id"]
+
+    payload = {
+        "name": "Alex",
+        "occupation": "Software engineer",
+        "learning_goal": "Job interviews",
+        "preferred_tone": "casual",
+    }
+    resp = await client.patch(
+        f"/conversations/{conv_id}/context",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["user_context"]["name"] == "Alex"
+    assert data["user_context"]["preferred_tone"] == "casual"
+    assert "Alex" in data["conversation_prompt"]
+    assert "Be helpful." in data["conversation_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_update_context_returns_404_for_wrong_user(client, db_session):
+    user, topic, token = await seed_user_and_topic(db_session)
+    _, _, other_token = await seed_user_and_topic(db_session)
+    r = await client.post("/conversations", json={"topic_id": str(topic.id)},
+                          headers={"Authorization": f"Bearer {token}"})
+    conv_id = r.json()["id"]
+
+    resp = await client.patch(
+        f"/conversations/{conv_id}/context",
+        json={"name": "Eve", "occupation": "Hacker", "learning_goal": "Intrusion", "preferred_tone": "formal"},
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert resp.status_code == 404

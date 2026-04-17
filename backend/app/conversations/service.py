@@ -67,3 +67,50 @@ async def delete_conversation(db: AsyncSession, conversation_id: UUID, user_id: 
         raise ValueError("Conversation not found")
     conversation.deleted_at = datetime.now(timezone.utc)
     await db.commit()
+
+
+async def update_conversation_context(
+    db: AsyncSession,
+    conversation_id: UUID,
+    user_id: UUID,
+    name: str,
+    occupation: str,
+    learning_goal: str,
+    preferred_tone: str,
+) -> Conversation:
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+            Conversation.deleted_at == None,
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    if not conversation:
+        raise ValueError("Conversation not found")
+
+    topic_result = await db.execute(
+        select(Topic).where(Topic.id == conversation.topic_id)
+    )
+    topic = topic_result.scalar_one_or_none()
+    base_prompt = topic.system_prompt if topic and topic.system_prompt else "You are a helpful assistant."
+
+    combined_prompt = (
+        f"{base_prompt}\n\n"
+        f"User context:\n"
+        f"- Name: {name}\n"
+        f"- Occupation: {occupation}\n"
+        f"- Learning goal: {learning_goal}\n"
+        f"- Preferred tone: {preferred_tone}"
+    )
+
+    conversation.user_context = {
+        "name": name,
+        "occupation": occupation,
+        "learning_goal": learning_goal,
+        "preferred_tone": preferred_tone,
+    }
+    conversation.conversation_prompt = combined_prompt
+    await db.commit()
+    await db.refresh(conversation)
+    return conversation
