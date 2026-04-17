@@ -20,10 +20,16 @@ class AdminUserOut(BaseModel):
     email: str
     role: str
     level: str
+    avatar_url: str | None
     created_at: datetime
 
 class UpdatePasswordRequest(BaseModel):
     password: str
+
+class UpdateUserRequest(BaseModel):
+    role: str | None = None
+    level: str | None = None
+    avatar_url: str | None = None
 
 class AdminTopicOut(BaseModel):
     id: str
@@ -52,7 +58,7 @@ async def list_users(
     result = await db.execute(select(User).where(User.deleted_at.is_(None)))
     users = result.scalars().all()
     return [
-        AdminUserOut(id=str(u.id), email=u.email, role=u.role, level=u.level, created_at=u.created_at)
+        AdminUserOut(id=str(u.id), email=u.email, role=u.role, level=u.level, avatar_url=u.avatar_url, created_at=u.created_at)
         for u in users
     ]
 
@@ -70,6 +76,27 @@ async def update_user_password(
     user.password_hash = pwd_context.hash(body.password)
     await db.commit()
     return {"ok": True}
+
+@router.patch("/users/{user_id}", response_model=AdminUserOut)
+async def update_user(
+    user_id: UUID,
+    body: UpdateUserRequest,
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if body.role is not None:
+        user.role = body.role
+    if body.level is not None:
+        user.level = body.level
+    if body.avatar_url is not None:
+        user.avatar_url = body.avatar_url
+    await db.commit()
+    await db.refresh(user)
+    return AdminUserOut(id=str(user.id), email=user.email, role=user.role, level=user.level, avatar_url=user.avatar_url, created_at=user.created_at)
 
 @router.delete("/users/{user_id}")
 async def delete_user(

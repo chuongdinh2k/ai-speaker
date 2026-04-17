@@ -115,6 +115,7 @@ export interface AdminUser {
   email: string
   role: string
   level: string
+  avatar_url: string | null
   created_at: string
 }
 
@@ -129,6 +130,8 @@ export interface AdminTopic {
 export const adminApi = {
   // Users
   listUsers: () => client.get<AdminUser[]>("/admin/users"),
+  updateUser: (id: string, role?: string, level?: string, avatar_url?: string) =>
+    client.patch<AdminUser>(`/admin/users/${id}`, { role, level, avatar_url }),
   updatePassword: (id: string, password: string) =>
     client.patch(`/admin/users/${id}/password`, { password }),
   deleteUser: (id: string) => client.delete(`/admin/users/${id}`),
