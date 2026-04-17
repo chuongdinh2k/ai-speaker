@@ -124,14 +124,20 @@ async def get_system_prompt(
     else:
         result = await db.execute(
             text("""
-                SELECT t.system_prompt FROM topics t
-                JOIN conversations c ON c.topic_id = t.id
+                SELECT c.conversation_prompt, t.system_prompt
+                FROM conversations c
+                JOIN topics t ON t.id = c.topic_id
                 WHERE c.id = :conv_id
             """),
             {"conv_id": str(conversation_id)},
         )
         row = result.fetchone()
-        base_prompt = row.system_prompt if row and row.system_prompt else "You are a helpful assistant."
+        if row and row.conversation_prompt:
+            base_prompt = row.conversation_prompt
+        elif row and row.system_prompt:
+            base_prompt = row.system_prompt
+        else:
+            base_prompt = "You are a helpful assistant."
         try:
             await redis_client.setex(base_cache_key, 3600, base_prompt)
         except Exception:
