@@ -29,6 +29,7 @@ backend/audio/
 
 docs/superpowers/
 backend/docs/superpowers/
+backend/docs/superpowers/specs/*
 .claude/
 
 

@@ -14,13 +14,13 @@ export default function TopicsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const { logout } = useAuth()
   const navigate = useNavigate()
-  const email = (() => {
+  const { email, role } = (() => {
     try {
       const token = localStorage.getItem("token")
-      if (!token) return ""
+      if (!token) return { email: "", role: "" }
       const payload = JSON.parse(atob(token.split(".")[1]))
-      return payload.email ?? ""
-    } catch { return "" }
+      return { email: payload.email ?? "", role: payload.role ?? "" }
+    } catch { return { email: "", role: "" } }
   })()
 
   useEffect(() => {
@@ -46,6 +46,14 @@ export default function TopicsPage() {
       <div className="bg-white border-b px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
         <h1 className="text-lg font-bold">Topics</h1>
         <div className="flex items-center gap-3">
+          {role === "admin" && (
+            <button
+              onClick={() => navigate("/admin")}
+              className="text-sm text-purple-600 hover:underline font-medium"
+            >
+              Admin
+            </button>
+          )}
           <button
             onClick={() => navigate("/vocabulary")}
             className="text-sm text-gray-500 hover:text-gray-700"
